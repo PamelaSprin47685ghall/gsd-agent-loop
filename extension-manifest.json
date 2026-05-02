@@ -1,0 +1,26 @@
+{
+  "id": "agent-loop",
+  "name": "Agent Loop",
+  "version": "0.1.0",
+  "description": "General-purpose agent loop extension. Supports goal loops, fixed-pass loops, and pipelines.",
+  "tier": "user",
+  "requires": {
+    "platform": ">=2.29.0"
+  },
+  "provides": {
+    "tools": [
+      "loop_control"
+    ],
+    "commands": [
+      "loop",
+      "loop-stop"
+    ],
+    "hooks": [
+      "session_start",
+      "session_switch",
+      "session_fork",
+      "session_tree",
+      "before_agent_start"
+    ]
+  }
+}
