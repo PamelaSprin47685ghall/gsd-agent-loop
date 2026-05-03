@@ -154,10 +154,6 @@ export async function registerLoopControlTool(pi, stateRef) {
       const result = handleLoopControlTool(params, stateRef.current, pi, ctx);
       stateRef.current = result.newState;
 
-      if (params.status === "next" && stateRef.current.active && !stateRef.current.done) {
-        stateRef.current = scheduleNextIteration(stateRef.current, pi);
-      }
-
       const { updateWidget } = await import("./state.js");
       updateWidget(stateRef.current, ctx);
       return {
