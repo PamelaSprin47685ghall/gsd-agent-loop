@@ -68,11 +68,18 @@ export default function agentLoopPlugin(pi) {
   // ── /loop command — start a loop ─────────────────────────────────────
   pi.registerCommand("loop", {
     description: "Start a loop. Usage: /loop goal <desc> | /loop passes <N> <task> | /loop pipeline <s1|s2|s3> <goal>",
-    getArgumentCompletions: () => [
-      { value: "goal ", label: "goal <description>", description: "Loop until goal is met" },
-      { value: "passes ", label: "passes <N> <task>", description: "Run exactly N passes" },
-      { value: "pipeline ", label: "pipeline <s1|s2|s3> <goal>", description: "Run stages in order" },
-    ],
+    getArgumentCompletions: (input) => {
+      const trimmed = input?.trim();
+      // 只有还没输入模式关键字时才提供 autocomplete，避免干扰正常输入
+      if (!trimmed || trimmed === "goal" || trimmed === "passes" || trimmed === "pipeline") {
+        return [
+          { value: "goal ", label: "goal <description>", description: "Loop until goal is met" },
+          { value: "passes ", label: "passes <N> <task>", description: "Run exactly N passes" },
+          { value: "pipeline ", label: "pipeline <s1|s2|s3> <goal>", description: "Run stages in order" },
+        ];
+      }
+      return [];
+    },
     handler: async (args, ctx) => {
       if (!args?.trim()) {
         ctx.ui.notify("Usage:\n  /loop goal <description>\n  /loop passes <N> <task>\n  /loop pipeline <s1|s2|s3> <goal>", "info");

@@ -24,6 +24,32 @@ export function handleLoopControlTool(params, state, pi, _ctx) {
   }
 
   if (params.status === "done") {
+    // Guard: passes/count/pipeline 模式必须完成所有迭代才能调用 done
+    const requiresCompletion = state.mode !== "goal" && state.currentStep < state.maxSteps - 1;
+    if (requiresCompletion) {
+      const newState = { ...state, currentStep: state.currentStep + 1 };
+      setTimeout(() => {
+        pi.sendMessage(
+          {
+            customType: "loop-iteration",
+            content: buildPrompt(newState),
+            display: false,
+          },
+          { triggerTurn: true, deliverAs: "steer" },
+        );
+      }, 100);
+      return {
+        content: [
+          {
+            type: "text",
+            text: `⚠️ Cannot end early. Must complete all ${state.maxSteps} iterations. Forcing continue to step ${newState.currentStep + 1}.`,
+          },
+        ],
+        details: { ...newState },
+        newState,
+      };
+    }
+
     const newState = {
       ...state,
       done: true,
