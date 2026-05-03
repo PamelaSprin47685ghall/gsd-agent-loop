@@ -1,9 +1,6 @@
-/**
- * Agent Loop Extension
- * 
- * Ported from pi-agent-loop to GSD-2 structure.
- * Supports goal loops, fixed-pass loops, and pipelines.
- */
+import { ensureBundledExtensionPath } from "./src/self-injection.js";
+
+ensureBundledExtensionPath(import.meta.url);
 
 import { 
   emptyState, 
@@ -14,13 +11,45 @@ import {
   parsePassesArgs,
   parsePipelineArgs
 } from "./src/state.js";
+import { registerLoopControlTool } from "./src/tool.js";
 
 let state = emptyState();
 const stateRef = { get current() { return state; }, set current(v) { state = v; } };
+const registeredPluginApis = new WeakSet();
+const registeredToolApis = new WeakSet();
+const registeredShortcutApis = new WeakSet();
 
-export default function agentLoopPlugin(pi) {
+async function ensureLoopTool(pi) {
+  if (registeredToolApis.has(pi)) return;
+  await registerLoopControlTool(pi, stateRef);
+  registeredToolApis.add(pi);
+}
+
+async function ensureLoopShortcut(pi) {
+  if (registeredShortcutApis.has(pi)) return;
+  const { Key } = await import("@gsd/pi-tui").catch(() => ({
+    Key: { ctrlShift: key => `ctrl+shift+${key}` },
+  }));
+  pi.registerShortcut?.(Key.ctrlShift("x"), {
+    description: "Stop the active loop",
+    handler: async (ctx) => {
+      if (!state.active) return;
+      state = { ...state, active: false, done: true, reasonDone: "Stopped by shortcut" };
+      updateWidget(state, ctx);
+      ctx.abort();
+      ctx.ui.notify("Loop aborted", "warning");
+    },
+  });
+  registeredShortcutApis.add(pi);
+}
+
+export default async function agentLoopPlugin(pi) {
+  if (registeredPluginApis.has(pi)) return;
+  registeredPluginApis.add(pi);
+
+  await ensureLoopTool(pi);
+  await ensureLoopShortcut(pi);
   
-  // ── Reconstruct state from session branch ────────────────────────────
   const reconstruct = (ctx) => {
     state = emptyState();
     for (const entry of ctx.sessionManager.getBranch()) {
@@ -35,29 +64,13 @@ export default function agentLoopPlugin(pi) {
 
   pi.on("session_start", async (_e, ctx) => {
     reconstruct(ctx);
-    const { registerLoopControlTool } = await import("./src/tool.js");
-    await registerLoopControlTool(pi, stateRef);
     updateWidget(state, ctx);
-
-    // Register shortcut on first session start (or idempotent)
-    const { Key } = await import("@gsd/pi-tui");
-    pi.registerShortcut?.(Key.ctrlShift("x"), {
-      description: "Stop the active loop",
-      handler: async (ctx) => {
-        if (!state.active) return;
-        state = { ...state, active: false, done: true, reasonDone: "Stopped by shortcut" };
-        updateWidget(state, ctx);
-        ctx.abort();
-        ctx.ui.notify("Loop aborted", "warning");
-      },
-    });
   });
   
   pi.on("session_switch", async (_e, ctx) => reconstruct(ctx));
   pi.on("session_fork", async (_e, ctx) => reconstruct(ctx));
   pi.on("session_tree", async (_e, ctx) => reconstruct(ctx));
 
-  // ── Inject loop context into the system prompt ───────────────────────
   pi.on("before_agent_start", async (event, _ctx) => {
     if (!state.active) return;
     return {
@@ -65,12 +78,10 @@ export default function agentLoopPlugin(pi) {
     };
   });
 
-  // ── /loop command — start a loop ─────────────────────────────────────
   pi.registerCommand("loop", {
     description: "Start a loop. Usage: /loop goal <desc> | /loop passes <N> <task> | /loop pipeline <s1|s2|s3> <goal>",
     getArgumentCompletions: (input) => {
       const trimmed = input?.trim();
-      // 只有还没输入模式关键字时才提供 autocomplete，避免干扰正常输入
       if (!trimmed || trimmed === "goal" || trimmed === "passes" || trimmed === "pipeline") {
         return [
           { value: "goal ", label: "goal <description>", description: "Loop until goal is met" },
@@ -115,7 +126,6 @@ export default function agentLoopPlugin(pi) {
     },
   });
 
-  // ── /loop-stop command ───────────────────────────────────────────────
   pi.registerCommand("loop-stop", {
     description: "Stop the active loop",
     handler: async (_args, ctx) => {

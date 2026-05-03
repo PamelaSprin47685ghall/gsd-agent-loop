@@ -125,9 +125,17 @@ export function handleLoopControlTool(params, state, pi, _ctx) {
  * @param {{ current: LoopState }} stateRef
  */
 export async function registerLoopControlTool(pi, stateRef) {
-  const { StringEnum } = await import("@gsd/pi-ai");
-  const { Text } = await import("@gsd/pi-tui");
-  const { Type } = await import("@sinclair/typebox");
+  const [{ StringEnum }, { Text }, { Type }] = await Promise.all([
+    import("@gsd/pi-ai").catch(() => ({ StringEnum: values => ({ type: "string", enum: values }) })),
+    import("@gsd/pi-tui").catch(() => ({ Text: class Text { constructor(text, x, y) { this.text = text; this.x = x; this.y = y; } } })),
+    import("@sinclair/typebox").catch(() => ({
+      Type: {
+        Object: properties => ({ type: "object", properties }),
+        String: options => ({ type: "string", ...options }),
+        Optional: schema => schema,
+      },
+    })),
+  ]);
   
   pi.registerTool({
     name: "loop_control",

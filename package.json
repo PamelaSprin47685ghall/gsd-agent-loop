@@ -1,18 +1,23 @@
 {
   "name": "gsd-agent-loop",
-  "version": "0.1.0",
-  "description": "General-purpose agent loop extension for pi. Supports goal loops, fixed-pass loops, and multi-stage pipelines.",
+  "version": "5.1.0",
+  "description": "Loop control extension for GSD and pi agents: goal loops, fixed-pass loops, and staged pipelines.",
   "type": "module",
   "exports": "./index.js",
   "scripts": {
     "test": "node --test test/*.test.mjs"
   },
+  "keywords": [
+    "pi-package",
+    "gsd-extension",
+    "agent-loop"
+  ],
   "gsd": {
     "extension": true
   },
   "pi": {
     "extensions": [
-      "index.js"
+      "./index.js"
     ]
   }
 }

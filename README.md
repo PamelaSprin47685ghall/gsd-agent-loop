@@ -1,44 +1,48 @@
-# 🔄 Agent Loop
+# Agent Loop
 
-General-purpose loop extension for pi. Repeats agent turns automatically in three modes: until a goal is met, for a fixed number of passes, or through a sequence of named pipeline stages.
+Agent Loop adds explicit loop control to GSD and pi sessions. Use it when an agent should keep working across multiple turns instead of stopping after one response.
 
-## What it does
+Version: `5.1.0`.
 
-Registers a `/loop` command and a `loop_control` tool. On each iteration, the agent does its work then calls `loop_control` to either advance to the next iteration (`next`) or declare the goal complete (`done`). The loop context is injected into the system prompt automatically so the agent always knows where it is.
+## What it provides
 
-## Commands
-
-| Command | Description |
+| Capability | Name |
 |---|---|
-| `/loop goal <description>` | Repeat until the LLM declares the goal met (open-ended) |
-| `/loop passes <N> <task>` | Run exactly N passes |
-| `/loop pipeline <s1\|s2\|s3> <goal>` | Run named stages sequentially, stop after the last |
-| `/loop-stop` | Stop the active loop immediately |
+| Tool | `loop_control` |
+| Commands | `/loop`, `/loop-stop` |
+| Shortcut | `Ctrl+Shift+X` |
+| Hooks | session restore and system prompt injection |
 
-## Shortcut
+## Loop modes
 
-| Shortcut | Description |
-|---|---|
-| `Ctrl+Shift+X` | Emergency abort — stops the loop and cancels the current turn |
-
-## Tool: `loop_control`
-
-The LLM calls this tool to signal progress. It is only active during a loop.
-
-| Parameter | Type | Description |
+| Mode | Command | Behavior |
 |---|---|---|
-| `status` | `"next" \| "done"` | Advance to next iteration or declare completion |
-| `summary` | `string` | Brief summary of what was accomplished this iteration |
-| `reason` | `string?` | Why the goal is met (used with `"done"`) |
+| Goal | `/loop goal <description>` | Runs until the agent calls `loop_control` with `done`. |
+| Passes | `/loop passes <N> <task>` | Runs exactly `N` iterations. |
+| Pipeline | `/loop pipeline <s1\|s2\|s3> <goal>` | Runs named stages in order. |
 
 ## Examples
 
-```
+```text
 /loop goal Refactor all test files to use the new assertion API
 /loop passes 3 Review and improve the README
-/loop pipeline analyze|implement|test Write and test the new auth module
+/loop pipeline analyze|implement|test Write and test the auth module
 ```
 
-## TUI widget
+## Operational notes
 
-While a loop is active, a status bar entry and widget show the current mode, goal, and iteration count.
+- The agent continues by calling `loop_control` with `next`.
+- Goal loops finish when the agent calls `loop_control` with `done` and a reason.
+- Fixed-pass and pipeline loops do not end early.
+- `Ctrl+Shift+X` stops the active loop and aborts the current turn.
+- Forked sessions inherit the extension automatically.
+
+## Maintainer spec
+
+See [`SPEC.md`](./SPEC.md) for loop-state, restoration, prompt, and full-suite compatibility rules.
+
+## Test
+
+```bash
+npm test
+```
