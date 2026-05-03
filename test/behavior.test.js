@@ -25,31 +25,25 @@ describe("tool behavior", () => {
     assert.ok(result.content[0].text.includes("Loop complete"));
   });
 
-  it("handleLoopControlTool advances iteration", async () => {
+  it("handleLoopControlTool advances iteration", () => {
     const state = emptyState();
     state.active = true;
     state.mode = "goal";
     state.currentStep = 0;
-    
-    let messageSent = false;
-    const piMock = {
-      sendMessage: () => { messageSent = true; }
-    };
+
+    const piMock = {};
     const ctxMock = {};
-    
+
     const result = handleLoopControlTool(
       { status: "next", summary: "step one done" },
       state,
       piMock,
       ctxMock
     );
-    
+
     assert.strictEqual(result.newState.currentStep, 1);
     assert.strictEqual(result.newState.active, true);
-    
-    // Wait for the setTimeout in handleLoopControlTool
-    await new Promise(resolve => setTimeout(resolve, 150));
-    assert.strictEqual(messageSent, true);
+    // Message sending is handled by the execute handler, not the tool logic
   });
 
   it("handleLoopControlTool respects passes limit", () => {

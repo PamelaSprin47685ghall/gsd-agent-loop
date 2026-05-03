@@ -1,8 +1,8 @@
-// loop-state.js — Types and utilities for the loop extension
+// loop-state.js - Types and utilities for the loop extension
 
 /**
  * @typedef {"goal" | "passes" | "pipeline"} LoopMode
- * 
+ *
  * @typedef {Object} LoopState
  * @property {boolean} active
  * @property {LoopMode} mode
@@ -28,9 +28,9 @@ export function emptyState() {
   };
 }
 
-/** 
+/**
  * @param {LoopState} state
- * @returns {string} 
+ * @returns {string}
  */
 export function buildPrompt(state) {
   const step = state.currentStep;
@@ -39,7 +39,7 @@ export function buildPrompt(state) {
     const stage = state.stages[step];
     const remaining = state.stages.length - step - 1;
     return [
-      `## Loop — Pipeline stage ${step + 1}/${state.stages.length}`,
+      `## Loop - Pipeline stage ${step + 1}/${state.stages.length}`,
       `Overall goal: ${state.goal}`,
       `Current stage: **${stage}**`,
       remaining > 0
@@ -51,7 +51,7 @@ export function buildPrompt(state) {
 
   if (state.mode === "passes") {
     return [
-      `## Loop — Pass ${step + 1} of ${state.maxSteps}`,
+      `## Loop - Pass ${step + 1} of ${state.maxSteps}`,
       `Task: ${state.goal}`,
       step === 0
         ? `This is the first pass. Do an initial implementation/analysis.`
@@ -62,18 +62,18 @@ export function buildPrompt(state) {
     ].join("\n");
   }
 
-  // Goal mode — open-ended
+  // Goal mode - open-ended
   return [
-    `## Loop — Iteration ${step + 1}`,
+    `## Loop - Iteration ${step + 1}`,
     `Goal: ${state.goal}`,
     `Work toward the goal. When the goal is fully met, call loop_control with status "done" and explain why.`,
     `If more work is needed, call loop_control with status "next" describing what's left.`,
   ].join("\n");
 }
 
-/** 
+/**
  * @param {string[]} parts
- * @returns {LoopState | string} 
+ * @returns {LoopState | string}
  */
 export function parseGoalArgs(parts) {
   const goal = parts.slice(1).join(" ");
@@ -92,14 +92,18 @@ export function parseGoalArgs(parts) {
   };
 }
 
-/** 
+/**
  * @param {string[]} parts
- * @returns {LoopState | string} 
+ * @returns {LoopState | string}
  */
 export function parsePassesArgs(parts) {
+  const MAX_PASSES = 100;
   const n = parseInt(parts[1], 10);
   if (isNaN(n) || n < 1) {
     return "Provide a valid number of passes";
+  }
+  if (n > MAX_PASSES) {
+    return `Too many passes (max ${MAX_PASSES})`;
   }
   const task = parts.slice(2).join(" ");
   if (!task) {
@@ -117,9 +121,9 @@ export function parsePassesArgs(parts) {
   };
 }
 
-/** 
+/**
  * @param {string[]} parts
- * @returns {LoopState | string} 
+ * @returns {LoopState | string}
  */
 export function parsePipelineArgs(parts) {
   const stagesStr = parts[1];
@@ -132,6 +136,17 @@ export function parsePipelineArgs(parts) {
     .filter(Boolean);
   if (stages.length === 0) {
     return "Need at least one stage";
+  }
+  if (stages.length > 20) {
+    return "Too many stages (max 20)";
+  }
+  for (const stage of stages) {
+    if (stage.length > 50) {
+      return `Stage name too long: "${stage.slice(0, 20)}..." (max 50 chars)`;
+    }
+    if (!/^[\w\s\-:]+$/.test(stage)) {
+      return `Invalid stage name: "${stage}" (letters, numbers, spaces, hyphens, colons only)`;
+    }
   }
   const goal = parts.slice(2).join(" ") || stages.join(" → ");
   return {
@@ -146,7 +161,7 @@ export function parsePipelineArgs(parts) {
   };
 }
 
-/** 
+/**
  * @param {LoopState} state
  * @param {any} ctx
  */
@@ -173,9 +188,9 @@ export function updateWidget(state, ctx) {
   ]);
 }
 
-/** 
+/**
  * @param {LoopState} state
- * @returns {string} 
+ * @returns {string}
  */
 export function getSystemPromptAddition(state) {
   return [

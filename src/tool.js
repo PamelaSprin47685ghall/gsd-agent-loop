@@ -27,27 +27,15 @@ export function handleLoopControlTool(params, state, pi, _ctx) {
     // Guard: passes/count/pipeline 模式必须完成所有迭代才能调用 done
     const requiresCompletion = state.mode !== "goal" && state.currentStep < state.maxSteps - 1;
     if (requiresCompletion) {
-      const newState = { ...state, currentStep: state.currentStep + 1 };
-      // Defer to let the current tool result settle before injecting the next iteration prompt.
-      setTimeout(() => {
-        pi.sendMessage(
-          {
-            customType: "loop-iteration",
-            content: buildPrompt(newState),
-            display: false,
-          },
-          { triggerTurn: true, deliverAs: "steer" },
-        );
-      }, 0);
       return {
         content: [
           {
             type: "text",
-            text: `Cannot end early — must complete all ${state.maxSteps} iterations. Advancing to step ${newState.currentStep + 1}.`,
+            text: `Cannot end loop early with status "done" in ${state.mode} mode — must complete all ${state.maxSteps} iterations. Use status "next" to advance to the next iteration, or wait until the final iteration.`,
           },
         ],
-        details: { ...newState },
-        newState,
+        details: { ...state },
+        newState: state,
       };
     }
 
@@ -98,18 +86,6 @@ export function handleLoopControlTool(params, state, pi, _ctx) {
     };
   }
 
-  // Defer to let the current tool result settle before injecting the next iteration prompt.
-  setTimeout(() => {
-    pi.sendMessage(
-      {
-        customType: "loop-iteration",
-        content: buildPrompt(newState),
-        display: false,
-      },
-      { triggerTurn: true, deliverAs: "steer" },
-    );
-  }, 0);
-
   return {
     content: [
       {
@@ -120,6 +96,25 @@ export function handleLoopControlTool(params, state, pi, _ctx) {
     details: { ...newState },
     newState,
   };
+}
+
+/**
+ * @param {{ status: "next" | "done", summary: string, reason?: string }} params
+ * @param {LoopState} state
+ * @param {any} pi
+ * @param {any} ctx
+ */
+export function scheduleNextIteration(params, state, pi, ctx) {
+  const newState = { ...state, currentStep: state.currentStep + 1 };
+  pi.sendMessage(
+    {
+      customType: "loop-iteration",
+      content: buildPrompt(newState),
+      display: false,
+    },
+    { triggerTurn: true, deliverAs: "steer" },
+  );
+  return newState;
 }
 
 /**
@@ -160,6 +155,11 @@ export async function registerLoopControlTool(pi, stateRef) {
     async execute(_id, params, _signal, _onUpdate, ctx) {
       const result = handleLoopControlTool(params, stateRef.current, pi, ctx);
       stateRef.current = result.newState;
+
+      if (params.status === "next" && stateRef.current.active && !stateRef.current.done) {
+        stateRef.current = scheduleNextIteration(params, stateRef.current, pi, ctx);
+      }
+
       const { updateWidget } = await import("./state.js");
       updateWidget(stateRef.current, ctx);
       return {
