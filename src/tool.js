@@ -99,12 +99,10 @@ export function handleLoopControlTool(params, state, pi, _ctx) {
 }
 
 /**
- * @param {{ status: "next" | "done", summary: string, reason?: string }} params
  * @param {LoopState} state
  * @param {any} pi
- * @param {any} ctx
  */
-export function scheduleNextIteration(params, state, pi, ctx) {
+export function scheduleNextIteration(state, pi) {
   const newState = { ...state, currentStep: state.currentStep + 1 };
   pi.sendMessage(
     {
@@ -157,7 +155,7 @@ export async function registerLoopControlTool(pi, stateRef) {
       stateRef.current = result.newState;
 
       if (params.status === "next" && stateRef.current.active && !stateRef.current.done) {
-        stateRef.current = scheduleNextIteration(params, stateRef.current, pi, ctx);
+        stateRef.current = scheduleNextIteration(stateRef.current, pi);
       }
 
       const { updateWidget } = await import("./state.js");
