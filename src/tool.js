@@ -28,6 +28,7 @@ export function handleLoopControlTool(params, state, pi, _ctx) {
     const requiresCompletion = state.mode !== "goal" && state.currentStep < state.maxSteps - 1;
     if (requiresCompletion) {
       const newState = { ...state, currentStep: state.currentStep + 1 };
+      // Defer to let the current tool result settle before injecting the next iteration prompt.
       setTimeout(() => {
         pi.sendMessage(
           {
@@ -37,12 +38,12 @@ export function handleLoopControlTool(params, state, pi, _ctx) {
           },
           { triggerTurn: true, deliverAs: "steer" },
         );
-      }, 100);
+      }, 0);
       return {
         content: [
           {
             type: "text",
-            text: `⚠️ Cannot end early. Must complete all ${state.maxSteps} iterations. Forcing continue to step ${newState.currentStep + 1}.`,
+            text: `Cannot end early — must complete all ${state.maxSteps} iterations. Advancing to step ${newState.currentStep + 1}.`,
           },
         ],
         details: { ...newState },
@@ -97,6 +98,7 @@ export function handleLoopControlTool(params, state, pi, _ctx) {
     };
   }
 
+  // Defer to let the current tool result settle before injecting the next iteration prompt.
   setTimeout(() => {
     pi.sendMessage(
       {
@@ -106,7 +108,7 @@ export function handleLoopControlTool(params, state, pi, _ctx) {
       },
       { triggerTurn: true, deliverAs: "steer" },
     );
-  }, 100);
+  }, 0);
 
   return {
     content: [

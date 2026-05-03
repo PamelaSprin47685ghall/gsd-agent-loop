@@ -72,7 +72,7 @@ export default async function agentLoopPlugin(pi) {
   pi.on("session_tree", async (_e, ctx) => reconstruct(ctx));
 
   pi.on("before_agent_start", async (event, _ctx) => {
-    if (!state.active) return;
+    if (!state.active || state.done) return;
     return {
       systemPrompt: (event.systemPrompt || "") + getSystemPromptAddition(state),
     };
