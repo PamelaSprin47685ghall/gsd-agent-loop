@@ -18,14 +18,14 @@
 export function emptyState() {
   return {
     active: false,
-    mode: "goal",
+    mode: 'goal',
     currentStep: 0,
     maxSteps: 0,
-    goal: "",
+    goal: '',
     stages: [],
     done: false,
-    reasonDone: "",
-  };
+    reasonDone: '',
+  }
 }
 
 /**
@@ -33,23 +33,23 @@ export function emptyState() {
  * @returns {string}
  */
 export function buildPrompt(state) {
-  const step = state.currentStep;
+  const step = state.currentStep
 
-  if (state.mode === "pipeline") {
-    const stage = state.stages[step];
-    const remaining = state.stages.length - step - 1;
+  if (state.mode === 'pipeline') {
+    const stage = state.stages[step]
+    const remaining = state.stages.length - step - 1
     return [
       `## Loop - Pipeline stage ${step + 1}/${state.stages.length}`,
       `Overall goal: ${state.goal}`,
       `Current stage: **${stage}**`,
       remaining > 0
-        ? `Remaining stages: ${state.stages.slice(step + 1).join(" → ")}`
+        ? `Remaining stages: ${state.stages.slice(step + 1).join(' → ')}`
         : `This is the **final stage**. Call loop_control with status "done" when complete.`,
       `\nExecute this stage now. When finished, call loop_control with status "done" if this is the last stage, or "next" to advance.`,
-    ].join("\n");
+    ].join('\n')
   }
 
-  if (state.mode === "passes") {
+  if (state.mode === 'passes') {
     return [
       `## Loop - Pass ${step + 1} of ${state.maxSteps}`,
       `Task: ${state.goal}`,
@@ -59,7 +59,7 @@ export function buildPrompt(state) {
           ? `This is a refinement pass. Review and improve on the previous pass.`
           : `This is the **final pass**. Do a final polish, then call loop_control with status "done".`,
       `\nWhen this pass is complete, call loop_control with status "next" (or "done" on the final pass).`,
-    ].join("\n");
+    ].join('\n')
   }
 
   // Goal mode - open-ended
@@ -68,7 +68,7 @@ export function buildPrompt(state) {
     `Goal: ${state.goal}`,
     `Work toward the goal. When the goal is fully met, call loop_control with status "done" and explain why.`,
     `If more work is needed, call loop_control with status "next" describing what's left.`,
-  ].join("\n");
+  ].join('\n')
 }
 
 /**
@@ -76,20 +76,20 @@ export function buildPrompt(state) {
  * @returns {LoopState | string}
  */
 export function parseGoalArgs(parts) {
-  const goal = parts.slice(1).join(" ");
+  const goal = parts.slice(1).join(' ')
   if (!goal) {
-    return "Provide a goal description";
+    return 'Provide a goal description'
   }
   return {
     active: true,
-    mode: "goal",
+    mode: 'goal',
     currentStep: 0,
     maxSteps: Infinity,
     goal,
     stages: [],
     done: false,
-    reasonDone: "",
-  };
+    reasonDone: '',
+  }
 }
 
 /**
@@ -97,28 +97,28 @@ export function parseGoalArgs(parts) {
  * @returns {LoopState | string}
  */
 export function parsePassesArgs(parts) {
-  const MAX_PASSES = 100;
-  const n = parseInt(parts[1], 10);
+  const MAX_PASSES = 100
+  const n = parseInt(parts[1], 10)
   if (isNaN(n) || n < 1) {
-    return "Provide a valid number of passes";
+    return 'Provide a valid number of passes'
   }
   if (n > MAX_PASSES) {
-    return `Too many passes (max ${MAX_PASSES})`;
+    return `Too many passes (max ${MAX_PASSES})`
   }
-  const task = parts.slice(2).join(" ");
+  const task = parts.slice(2).join(' ')
   if (!task) {
-    return "Provide a task description";
+    return 'Provide a task description'
   }
   return {
     active: true,
-    mode: "passes",
+    mode: 'passes',
     currentStep: 0,
     maxSteps: n,
     goal: task,
     stages: [],
     done: false,
-    reasonDone: "",
-  };
+    reasonDone: '',
+  }
 }
 
 /**
@@ -126,39 +126,39 @@ export function parsePassesArgs(parts) {
  * @returns {LoopState | string}
  */
 export function parsePipelineArgs(parts) {
-  const stagesStr = parts[1];
+  const stagesStr = parts[1]
   if (!stagesStr) {
-    return "Provide stages separated by |";
+    return 'Provide stages separated by |'
   }
   const stages = stagesStr
-    .split("|")
+    .split('|')
     .map((s) => s.trim())
-    .filter(Boolean);
+    .filter(Boolean)
   if (stages.length === 0) {
-    return "Need at least one stage";
+    return 'Need at least one stage'
   }
   if (stages.length > 20) {
-    return "Too many stages (max 20)";
+    return 'Too many stages (max 20)'
   }
   for (const stage of stages) {
     if (stage.length > 50) {
-      return `Stage name too long: "${stage.slice(0, 20)}..." (max 50 chars)`;
+      return `Stage name too long: "${stage.slice(0, 20)}..." (max 50 chars)`
     }
     if (!/^[\w\s\-:]+$/.test(stage)) {
-      return `Invalid stage name: "${stage}" (letters, numbers, spaces, hyphens, colons only)`;
+      return `Invalid stage name: "${stage}" (letters, numbers, spaces, hyphens, colons only)`
     }
   }
-  const goal = parts.slice(2).join(" ") || stages.join(" → ");
+  const goal = parts.slice(2).join(' ') || stages.join(' → ')
   return {
     active: true,
-    mode: "pipeline",
+    mode: 'pipeline',
     currentStep: 0,
     maxSteps: stages.length,
     goal,
     stages,
     done: false,
-    reasonDone: "",
-  };
+    reasonDone: '',
+  }
 }
 
 /**
@@ -166,26 +166,33 @@ export function parsePipelineArgs(parts) {
  * @param {any} ctx
  */
 export function updateWidget(state, ctx) {
+  const setStatus = ctx?.ui?.setStatus
+  const setWidget = ctx?.ui?.setWidget
+
+  if (typeof setStatus !== 'function' || typeof setWidget !== 'function') {
+    return
+  }
+
   if (!state.active) {
-    ctx.ui.setStatus("loop", undefined);
-    ctx.ui.setWidget("loop", undefined);
-    return;
+    setStatus('loop', undefined)
+    setWidget('loop', undefined)
+    return
   }
 
   const label =
-    state.mode === "pipeline"
-      ? `stage ${state.currentStep + 1}/${state.stages.length}: ${state.stages[state.currentStep] ?? "?"}`
-      : state.mode === "passes"
+    state.mode === 'pipeline'
+      ? `stage ${state.currentStep + 1}/${state.stages.length}: ${state.stages[state.currentStep] ?? '?'}`
+      : state.mode === 'passes'
         ? `pass ${state.currentStep + 1}/${state.maxSteps}`
-        : `iteration ${state.currentStep + 1} (until goal met)`;
+        : `iteration ${state.currentStep + 1} (until goal met)`
 
-  ctx.ui.setStatus("loop", `🔄 ${label}`);
-  ctx.ui.setWidget("loop", [
+  setStatus('loop', `🔄 ${label}`)
+  setWidget('loop', [
     `┌─ Loop: ${state.mode} ──────────`,
     `│ ${state.goal}`,
     `│ ${label}`,
     `└─ Ctrl+Shift+X to stop ────────`,
-  ]);
+  ])
 }
 
 /**
@@ -194,12 +201,12 @@ export function updateWidget(state, ctx) {
  */
 export function getSystemPromptAddition(state) {
   return [
-    "",
-    "",
-    "## Active Loop",
-    `Mode: ${state.mode} | Step: ${state.currentStep + 1}/${state.maxSteps === Infinity ? "∞" : state.maxSteps}`,
+    '',
+    '',
+    '## Active Loop',
+    `Mode: ${state.mode} | Step: ${state.currentStep + 1}/${state.maxSteps === Infinity ? '∞' : state.maxSteps}`,
     `Goal: ${state.goal}`,
-    "You MUST call `loop_control` when you finish your work for this iteration.",
+    'You MUST call `loop_control` when you finish your work for this iteration.',
     'Use status "next" to advance or "done" when the goal is fully met.',
-  ].join("\n");
+  ].join('\n')
 }
